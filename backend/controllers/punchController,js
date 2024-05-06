@@ -1,0 +1,47 @@
+const Punch = require('../models/Punch');
+const Employee = require('../models/Employee');
+
+// Example values for company location
+const COMPANY_LAT = 37.7749;
+const COMPANY_LONG = -122.4194;
+const LOCATION_TOLERANCE = 0.01; // Approx 1km tolerance
+
+function isWithinLocation(lat, long) {
+    return Math.abs(lat - COMPANY_LAT) <= LOCATION_TOLERANCE && Math.abs(long - COMPANY_LONG) <= LOCATION_TOLERANCE;
+}
+
+exports.punchIn = async (req, res) => {
+    const { employeeId, lat, long } = req.body;
+    if (!isWithinLocation(lat, long)) {
+        return res.status(403).json({ message: "You are not at the work location" });
+    }
+
+    try {
+        const newPunch = new Punch({
+            employee: employeeId,
+            clockIn: { time: new Date(), location: { lat, long } }
+        });
+        await newPunch.save();
+        res.status(201).json(newPunch);
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+exports.punchOut = async (req, res) => {
+    const { punchId, lat, long } = req.body;
+    if (!isWithinLocation(lat, long)) {
+        return res.status(403).json({ message: "You are not at the work location" });
+    }
+
+    try {
+        const punch = await Punch.findById(punchId);
+        if (!punch) return res.status(404).json({ message: "Punch record not found" });
+
+        punch.clockOut = { time: new Date(), location: { lat, long } };
+        await punch.save();
+        res.status(200).json(punch);
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
+    }
+};
